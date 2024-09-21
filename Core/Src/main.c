@@ -103,23 +103,24 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 
-	if(GPIO_Pin == S1_Pin && HAL_GetTick() > (left_last_press_tick + 200)){
-
-		HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
-		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+	if(GPIO_Pin == S1_Pin && HAL_GetTick() > (left_last_press_tick + 200)){ // Ponemos los condicionales para
+																			// para cada presión de los botones
+		HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1); // Ponemos ambos leds en apagado, para que no interfiera en
+		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1); // en la siguiente instrucción dada
 		presion = 1;
-		cantidad_cambios1 = 6;
+		cantidad_cambios1 = 6; //Asignamos el valor de 6 para indicar los 3 parpadeos que debe hacer
 		estacionamiento_previo = 0;
 		numero_estacionamiento = 0;
 		HAL_UART_Transmit(&huart2, "Direccional izquierdo\r\n", 23, 10);
 		if (HAL_GetTick() < (left_last_press_tick + 300)) {
 			presion_doble = 1;
-			cantidad_cambios1 = 0xFFFFFF;
+			cantidad_cambios1 = 0xFFFFFF; // Indicamos el valor 0xFFFFFF como indicador de un número infinito
 		}
 		left_last_press_tick = HAL_GetTick();
 
-	} else if(GPIO_Pin == S2_Pin && HAL_GetTick() > (right_last_press_tick + 200)){
-
+// Para los siguientes dos condicionales es el mismo funcionamiento que el explicado anteriormente
+	} else if(GPIO_Pin == S2_Pin && HAL_GetTick() > (right_last_press_tick + 200)){ // El condicional del HAL_GetTick
+																					// es para evitar el rebote
 		HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
 		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
 		presion = 2;
@@ -139,9 +140,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
 		presion = 3;
 		cantidad_cambios3 = 0xFFFFFF;
-		if(	estacionamiento_previo == 0 && numero_estacionamiento > 0){
-			estacionamiento_previo = 1;
-		}else{
+		if(	estacionamiento_previo == 0 && numero_estacionamiento > 0){ //Realizamos una condición para saber cuál
+			estacionamiento_previo = 1;									//era el estado del estacionamiento y así
+		}else{															//que se apague si estaba prendido o viceversa
 			estacionamiento_previo = 0;
 			numero_estacionamiento++;
 		}
@@ -253,7 +254,7 @@ int main(void)
 	  heartbeat();
 
 	  if(presion == 1 && cantidad_cambios1 > 0 && HAL_GetTick() > tiempo_cambio){ // Si se presiona el botón de luz izquierda
-		  if(cantidad_cambios2 == 0){
+		  if(cantidad_cambios2 == 0){ // Esta condición es para que se cumpla si está prendido la luz del otro lado, entonces apague ambas
 			  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
 			  cantidad_cambios1--;
 			  tiempo_cambio = HAL_GetTick() + 500;
@@ -261,6 +262,7 @@ int main(void)
 		  	  cantidad_cambios1 = 0;
 		  	  cantidad_cambios2 = 0;
 		  }
+//El mismo funcionamiento del anterior está para este que es el led derecho
 	  }else if(presion == 2 && cantidad_cambios2 > 0 && HAL_GetTick() > tiempo_cambio){ // Si se presiona el botón de luz derecha
 		  if(cantidad_cambios1 == 0){
 			  HAL_GPIO_TogglePin(D4_GPIO_Port, D4_Pin);
@@ -270,7 +272,7 @@ int main(void)
 			  cantidad_cambios1 = 0;
 			  cantidad_cambios2 = 0;
 		  }
-
+// Y para el funcionamiento de la estacionaria es similar solo que con ambos leds
 	  }else if(presion == 3 && cantidad_cambios3 > 0 && HAL_GetTick() > tiempo_cambio){ // Si se presiona el botón de estacionar
 		  if(estacionamiento_previo == 0){
 			  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
