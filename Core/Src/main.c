@@ -23,11 +23,12 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 
-#include "ssd1306.h"
-#include "ssd1306_fonts.h"
+//#include "ssd1306.h"
+//#include "ssd1306_fonts.h"
 
-#include "ring_buffer.h"
+//#include "ring_buffer.h"
 #include "keypad.h"
+#include "tesla.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,100 +50,156 @@
 I2C_HandleTypeDef hi2c1;
 
 UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 
-#define USART2_BUFFER_SIZE 8
-uint8_t usart2_buffer[USART2_BUFFER_SIZE];
-ring_buffer_t usart2_rb;
-uint8_t usart2_rx;
-
-uint32_t left_toggles = 0;
+//#define USART2_BUFFER_SIZE 8
+//uint8_t usart2_buffer[USART2_BUFFER_SIZE];
+//ring_buffer_t usart2_rb;
+//uint8_t usart2_rx;
+//
+//uint32_t left_toggles = 0;
 uint32_t left_last_press_tick = 0;
+uint32_t right_last_press_tick = 0;
+uint32_t stop_last_press_tick = 0;
+uint8_t presion_doble = 0;
+uint8_t presion = 0;
+uint32_t cantidad_cambios1 = 0;
+uint32_t cantidad_cambios2 = 0;
+uint32_t cantidad_cambios3 = 0;
+uint32_t tiempo_cambio = 0;
+uint8_t estacionamiento_previo = 0;
+uint8_t numero_estacionamiento = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_USART3_UART_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int _write(int file, char *ptr, int len)
-{
-  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, 10);
-  return len;
-}
+//int _write(int file, char *ptr, int len)
+//{
+//  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, 10);
+//  return len;
+//}
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   /* Data received in USART2 */
-  if (huart->Instance == USART2) {
-	  usart2_rx = USART2->RDR; // leyendo el byte recibido de USART2
-	  ring_buffer_write(&usart2_rb, usart2_rx); // put the data received in buffer
-	  //HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // enable interrupt to continue receiving
-	  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando un funcion mas liviana para reducir memoria
-  }
+//  if (huart->Instance == USART2) {
+//	  usart2_rx = USART2->RDR; // leyendo el byte recibido de USART2
+//	  ring_buffer_write(&usart2_rb, usart2_rx); // put the data received in buffer
+//	  //HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // enable interrupt to continue receiving
+//	  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando un funcion mas liviana para reducir memoria
+//  }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	uint8_t key_pressed = keypad_scan(GPIO_Pin);
-	if (key_pressed != 0xFF) {
-		printf("Pressed: %c\r\n", key_pressed);
-		return;
-	}
 
-	if (GPIO_Pin == BUTTON_RIGHT_Pin) {
-		HAL_UART_Transmit(&huart2, (uint8_t *)"S1\r\n", 4, 10);
-		if (HAL_GetTick() < (left_last_press_tick + 300)) { // if last press was in the last 300ms
-			left_toggles = 0xFFFFFF; // a long time toggling (infinite)
-		} else {
-			left_toggles = 6;
+	if(GPIO_Pin == S1_Pin && HAL_GetTick() > (left_last_press_tick + 200)){
+
+		HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		presion = 1;
+		cantidad_cambios1 = 6;
+		estacionamiento_previo = 0;
+		numero_estacionamiento = 0;
+		HAL_UART_Transmit(&huart2, "Direccional izquierdo\r\n", 23, 10);
+		if (HAL_GetTick() < (left_last_press_tick + 300)) {
+			presion_doble = 1;
+			cantidad_cambios1 = 0xFFFFFF;
 		}
 		left_last_press_tick = HAL_GetTick();
-	} else if (GPIO_Pin == BUTTON_LEFT_Pin) {
-		left_toggles = 0;
+
+	} else if(GPIO_Pin == S2_Pin && HAL_GetTick() > (right_last_press_tick + 200)){
+
+		HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		presion = 2;
+		cantidad_cambios2 = 6;
+		estacionamiento_previo = 0;
+		numero_estacionamiento = 0;
+		HAL_UART_Transmit(&huart2, "Direccional derecho\r\n", 21, 10);
+		if (HAL_GetTick() < (right_last_press_tick + 300)) {
+			presion_doble = 2;
+			cantidad_cambios2 = 0xFFFFFF;
+		}
+		right_last_press_tick = HAL_GetTick();
+
+	}else if(GPIO_Pin == S3_Pin && HAL_GetTick() > (stop_last_press_tick + 200)){
+
+		HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		presion = 3;
+		cantidad_cambios3 = 0xFFFFFF;
+		if(	estacionamiento_previo == 0 && numero_estacionamiento > 0){
+			estacionamiento_previo = 1;
+		}else{
+			estacionamiento_previo = 0;
+			numero_estacionamiento++;
+		}
+		HAL_UART_Transmit(&huart2, "Estacionamiento\r\n", 17, 10);
+		stop_last_press_tick = HAL_GetTick();
 	}
+
+
+//	uint8_t key_pressed = keypad_scan(GPIO_Pin);
+//	if (key_pressed != 0xFF) {
+//		printf("Pressed: %c\r\n", key_pressed);
+//		return;
+//	}
+//
+//	if (GPIO_Pin == BUTTON_RIGHT_Pin) {
+//		HAL_UART_Transmit(&huart2, (uint8_t *)"S1\r\n", 4, 10);
+//		if (HAL_GetTick() < (left_last_press_tick + 300)) { // if last press was in the last 300ms
+//			left_toggles = 0xFFFFFF; // a long time toggling (infinite)
+//		} else {
+//			left_toggles = 6;
+//		}
+//		left_last_press_tick = HAL_GetTick();
+//	} else if (GPIO_Pin == BUTTON_LEFT_Pin) {
+//		left_toggles = 0;
+//	}
 }
 
-void low_power_mode()
-{
-#define AWAKE_TIME (10 * 1000) // 10 segundos
-	static uint32_t sleep_tick = AWAKE_TIME;
-
-	if (sleep_tick > HAL_GetTick()) {
-		return;
-	}
-	printf("Sleeping\r\n");
-	sleep_tick = HAL_GetTick() + AWAKE_TIME;
-
-	RCC->AHB1SMENR  = 0x0;
-	RCC->AHB2SMENR  = 0x0;
-	RCC->AHB3SMENR  = 0x0;
-
-	RCC->APB1SMENR1 = 0x0;
-	RCC->APB1SMENR2 = 0x0;
-	RCC->APB2SMENR  = 0x0;
-
-	/*Suspend Tick increment to prevent wakeup by Systick interrupt.
-	Otherwise the Systick interrupt will wake up the device within 1ms (HAL time base)*/
-	HAL_SuspendTick();
-
-	/* Enter Sleep Mode , wake up is done once User push-button is pressed */
-	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-
-	/* Resume Tick interrupt if disabled prior to SLEEP mode entry */
-	HAL_ResumeTick();
-
-	printf("Awake\r\n");
-}
+//void low_power_mode()
+//{
+//#define AWAKE_TIME (10 * 1000) // 10 segundos
+//	static uint32_t sleep_tick = AWAKE_TIME;
+//
+//	if (sleep_tick > HAL_GetTick()) {
+//		return;
+//	}
+//	printf("Sleeping\r\n");
+//	sleep_tick = HAL_GetTick() + AWAKE_TIME;
+//
+//	RCC->AHB1SMENR  = 0x0;
+//	RCC->AHB2SMENR  = 0x0;
+//	RCC->AHB3SMENR  = 0x0;
+//
+//	RCC->APB1SMENR1 = 0x0;
+//	RCC->APB1SMENR2 = 0x0;
+//	RCC->APB2SMENR  = 0x0;
+//
+//	/*Suspend Tick increment to prevent wakeup by Systick interrupt.
+//	Otherwise the Systick interrupt will wake up the device within 1ms (HAL time base)*/
+//	HAL_SuspendTick();
+//
+//	/* Enter Sleep Mode , wake up is done once User push-button is pressed */
+//	HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+//
+//	/* Resume Tick interrupt if disabled prior to SLEEP mode entry */
+//	HAL_ResumeTick();
+//
+//	printf("Awake\r\n");
+//}
 /* USER CODE END 0 */
 
 /**
@@ -174,35 +231,69 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_I2C1_Init();
   MX_USART2_UART_Init();
-  MX_USART3_UART_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  ssd1306_Init();
-  ssd1306_SetCursor(25, 30);
-  ssd1306_WriteString("Hello World!", Font_7x10, White);
-  ssd1306_UpdateScreen();
-
-  ring_buffer_init(&usart2_rb, usart2_buffer, USART2_BUFFER_SIZE);
+//  ssd1306_Init();
+//  ssd1306_SetCursor(25, 30);
+//  ssd1306_WriteString("Hello World!", Font_7x10, White);
+//  ssd1306_UpdateScreen();
+//
+//  ring_buffer_init(&usart2_rb, usart2_buffer, USART2_BUFFER_SIZE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  printf("Starting...\r\n");
+//  printf("Starting...\r\n");
   //HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // enable interrupt for USART2 Rx
-  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando un funcion mas liviana para reducir memoria
+//  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando un funcion mas liviana para reducir memoria
   while (1) {
-	  if (ring_buffer_is_full(&usart2_rb) != 0) {
-		  printf("Received:\r\n");
-		  while (ring_buffer_is_empty(&usart2_rb) == 0) {
-			  uint8_t data;
-			  ring_buffer_read(&usart2_rb, &data);
-			  HAL_UART_Transmit(&huart2, &data, 1, 10);
+
+	  heartbeat();
+
+	  if(presion == 1 && cantidad_cambios1 > 0 && HAL_GetTick() > tiempo_cambio){ // Si se presiona el botón de luz izquierda
+		  if(cantidad_cambios2 == 0){
+			  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
+			  cantidad_cambios1--;
+			  tiempo_cambio = HAL_GetTick() + 500;
+		  }else{
+		  	  cantidad_cambios1 = 0;
+		  	  cantidad_cambios2 = 0;
 		  }
-		  printf("\r\n");
+	  }else if(presion == 2 && cantidad_cambios2 > 0 && HAL_GetTick() > tiempo_cambio){ // Si se presiona el botón de luz derecha
+		  if(cantidad_cambios1 == 0){
+			  HAL_GPIO_TogglePin(D4_GPIO_Port, D4_Pin);
+			  cantidad_cambios2--;
+			  tiempo_cambio = HAL_GetTick() + 500;
+		  }else{
+			  cantidad_cambios1 = 0;
+			  cantidad_cambios2 = 0;
+		  }
+
+	  }else if(presion == 3 && cantidad_cambios3 > 0 && HAL_GetTick() > tiempo_cambio){ // Si se presiona el botón de estacionar
+		  if(estacionamiento_previo == 0){
+			  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
+			  HAL_GPIO_TogglePin(D4_GPIO_Port, D4_Pin);
+			  cantidad_cambios3--;
+			  tiempo_cambio = HAL_GetTick() + 500;
+			  cantidad_cambios1 = 0;
+			  cantidad_cambios2 = 0;
+		  }else if(	estacionamiento_previo == 1){
+			  cantidad_cambios3 = 0;
+		  }
 	  }
-	  low_power_mode();
+
+//	  if (ring_buffer_is_full(&usart2_rb) != 0) {
+//		  printf("Received:\r\n");
+//		  while (ring_buffer_is_empty(&usart2_rb) == 0) {
+//			  uint8_t data;
+//			  ring_buffer_read(&usart2_rb, &data);
+//			  HAL_UART_Transmit(&huart2, &data, 1, 10);
+//		  }
+//		  printf("\r\n");
+//	  }
+//	  low_power_mode();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -338,41 +429,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART3_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART3_Init 0 */
-
-  /* USER CODE END USART3_Init 0 */
-
-  /* USER CODE BEGIN USART3_Init 1 */
-
-  /* USER CODE END USART3_Init 1 */
-  huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
-  huart3.Init.WordLength = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits = UART_STOPBITS_1;
-  huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_TX_RX;
-  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART3_Init 2 */
-
-  /* USER CODE END USART3_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -385,76 +441,62 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_HEARTBEAT_Pin|LED_LEFT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, D1_Pin|D3_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(ROW_1_GPIO_Port, ROW_1_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, GPIO_PIN_SET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, ROW_2_Pin|ROW_4_Pin|ROW_3_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : BUTTON_LEFT_Pin BUTTON_RIGHT_Pin */
-  GPIO_InitStruct.Pin = BUTTON_LEFT_Pin|BUTTON_RIGHT_Pin;
+  /*Configure GPIO pin : S1_Pin */
+  GPIO_InitStruct.Pin = S1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(S1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : S2_Pin COLUMN_2_Pin COLUMN_3_Pin */
+  GPIO_InitStruct.Pin = S2_Pin|COLUMN_2_Pin|COLUMN_3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_HEARTBEAT_Pin LED_LEFT_Pin */
-  GPIO_InitStruct.Pin = LED_HEARTBEAT_Pin|LED_LEFT_Pin;
+  /*Configure GPIO pins : D1_Pin D3_Pin */
+  GPIO_InitStruct.Pin = D1_Pin|D3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : COLUMN_1_Pin */
-  GPIO_InitStruct.Pin = COLUMN_1_Pin;
+  /*Configure GPIO pins : S3_Pin COLUMN_1_Pin ROW_2_Pin ROW_3_Pin */
+  GPIO_InitStruct.Pin = S3_Pin|COLUMN_1_Pin|ROW_2_Pin|ROW_3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(COLUMN_1_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : COLUMN_4_Pin */
   GPIO_InitStruct.Pin = COLUMN_4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(COLUMN_4_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : COLUMN_2_Pin COLUMN_3_Pin */
-  GPIO_InitStruct.Pin = COLUMN_2_Pin|COLUMN_3_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : ROW_1_Pin */
-  GPIO_InitStruct.Pin = ROW_1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(ROW_1_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : ROW_2_Pin ROW_4_Pin ROW_3_Pin */
-  GPIO_InitStruct.Pin = ROW_2_Pin|ROW_4_Pin|ROW_3_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LED_RIGHT_Pin */
-  GPIO_InitStruct.Pin = LED_RIGHT_Pin;
+  /*Configure GPIO pin : D4_Pin */
+  GPIO_InitStruct.Pin = D4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_RIGHT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(D4_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
   HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
   HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI4_IRQn);

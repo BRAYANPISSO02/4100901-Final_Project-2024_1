@@ -24,11 +24,11 @@ static uint8_t keypad_debounce(uint16_t GPIO_Pin)
 uint8_t keypad_scan_row(GPIO_TypeDef *COLUMNx_GPIO_Port, uint16_t COLUMNx_Pin)
 {
 	uint8_t row_pressed = 0xFF;
-	HAL_GPIO_WritePin(ROW_1_GPIO_Port, ROW_1_Pin, GPIO_PIN_RESET);
-	if (HAL_GPIO_ReadPin(COLUMNx_GPIO_Port, COLUMNx_Pin) == 0) {
-		row_pressed =  1;
-		goto row_scan_end;
-	}
+//	HAL_GPIO_WritePin(ROW_1_GPIO_Port, ROW_1_Pin, GPIO_PIN_RESET);
+//	if (HAL_GPIO_ReadPin(COLUMNx_GPIO_Port, COLUMNx_Pin) == 0) {
+//		row_pressed =  1;
+//		goto row_scan_end;
+//	}
 	HAL_GPIO_WritePin(ROW_2_GPIO_Port, ROW_2_Pin, GPIO_PIN_RESET);
 	if (HAL_GPIO_ReadPin(COLUMNx_GPIO_Port, COLUMNx_Pin) == 0) {
 		row_pressed =  2;
@@ -39,16 +39,16 @@ uint8_t keypad_scan_row(GPIO_TypeDef *COLUMNx_GPIO_Port, uint16_t COLUMNx_Pin)
 		row_pressed =  3;
 		goto row_scan_end;
 	}
-	HAL_GPIO_WritePin(ROW_4_GPIO_Port, ROW_4_Pin, GPIO_PIN_RESET);
-	if (HAL_GPIO_ReadPin(COLUMNx_GPIO_Port, COLUMNx_Pin) == 0) {
-		row_pressed =  4;
-		goto row_scan_end;
-	}
+//	HAL_GPIO_WritePin(ROW_4_GPIO_Port, ROW_4_Pin, GPIO_PIN_RESET);
+//	if (HAL_GPIO_ReadPin(COLUMNx_GPIO_Port, COLUMNx_Pin) == 0) {
+//		row_pressed =  4;
+//		goto row_scan_end;
+//	}
 row_scan_end:
-	HAL_GPIO_WritePin(ROW_1_GPIO_Port, ROW_1_Pin, GPIO_PIN_SET);
+//	HAL_GPIO_WritePin(ROW_1_GPIO_Port, ROW_1_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(ROW_2_GPIO_Port, ROW_2_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(ROW_3_GPIO_Port, ROW_3_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(ROW_4_GPIO_Port, ROW_4_Pin, GPIO_PIN_SET);
+//	HAL_GPIO_WritePin(ROW_4_GPIO_Port, ROW_4_Pin, GPIO_PIN_SET);
 	return row_pressed; // not detected
 }
 
