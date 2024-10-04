@@ -58,9 +58,6 @@ UART_HandleTypeDef huart2;
 
 //#define USART2_BUFFER_SIZE 8
 //uint8_t usart2_buffer[USART2_BUFFER_SIZE];
-//ring_buffer_t usart2_rb;
-//uint8_t usart2_rx;
-//
 //uint32_t left_toggles = 0;
 uint32_t left_last_press_tick = 0;
 uint32_t right_last_press_tick = 0;
@@ -82,6 +79,32 @@ uint8_t clave[TAM_CLAVE];
 ring_buffer_t ring_clave;
 uint8_t validacion_clave = 0xFF;
 uint8_t numeral_dos;
+ring_buffer_t usart2_rb;
+uint8_t usart2_rx;
+//uint8_t dato_enviado = 0;
+uint8_t boton[TAM_BOTON];
+uint16_t tamano_dato = 0;
+uint8_t vali_dato_correcto1 = 0;
+uint8_t vali_dato_correcto2 = 0;
+uint8_t vali_dato_correcto3 = 0;
+char dato_correcto1[] = "S1";
+char dato_correcto2[] = "S2";
+char dato_correcto3[] = "S3";
+char dato_escrito[10];
+uint16_t read_buffer_ring_counter = 0;
+uint8_t recepcion;
+uint8_t vali_dato_correcto1_plus = 0;
+uint8_t vali_dato_correcto2_plus = 0;
+uint8_t vali_dato_correcto3_plus = 0;
+char dato_correcto1_plus[] = "+1";
+char dato_correcto2_plus[] = "+2";
+uint32_t cantidad_cambios_x_dato1 = 0;
+uint32_t cantidad_cambios_x_dato2 = 0;
+uint32_t cantidad_cambios_x_dato3 = 0;
+uint16_t pruebaa = 0;
+uint32_t numero_estacionamiento_dato = 0;
+
+//uint8_t boton_presionado[2];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,21 +118,22 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-//int _write(int file, char *ptr, int len)
-//{
-//  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, 10);
-//  return len;
-//}
+int _write(int file, char *ptr, int len)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, 10);
+  return len;
+}
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   /* Data received in USART2 */
-//  if (huart->Instance == USART2) {
-//	  usart2_rx = USART2->RDR; // leyendo el byte recibido de USART2
-//	  ring_buffer_write(&usart2_rb, usart2_rx); // put the data received in buffer
-//	  //HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // enable interrupt to continue receiving
-//	  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando un funcion mas liviana para reducir memoria
-//  }
+  if (huart->Instance == USART2) {
+	  usart2_rx = USART2->RDR; // leyendo el byte recibido de USART2
+	  ring_buffer_write(&usart2_rb, usart2_rx); // poner los datos recibidos en buffer
+	  HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // Habilitar interrupción para continuar recibiendo
+//	  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando una funcion mas liviana para reducir memoria
+//	  dato_enviado = 1;
+  }
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -247,6 +271,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   ring_buffer_init(&ring_clave, clave, TAM_CLAVE);
+  ring_buffer_init(&usart2_rb, boton, TAM_BOTON);
 //  ssd1306_Init();
 //  ssd1306_SetCursor(25, 30);
 //  ssd1306_WriteString("Hello World!", Font_7x10, White);
@@ -260,15 +285,90 @@ int main(void)
   presion_teclado = NO_PRESION;
   tecla_presionada = 0;
   numeral_dos = 0;
+
 //  numero_estacionamiento = 0;
 //  printf("Starting...\r\n");
-  //HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // enable interrupt for USART2 Rx
+  HAL_UART_Receive_IT(&huart2, &usart2_rx, 1); // enable interrupt for USART2 Rx
 //  ATOMIC_SET_BIT(USART2->CR1, USART_CR1_RXNEIE); // usando un funcion mas liviana para reducir memoria
   while (1) {
 
-//	  char* tx2[15];
-//		uint8_t len2=sprintf(&tx2, "PT=%d--Es=%d--TP=%c\r\n", presion_teclado, state, tecla_presionada);
-//		HAL_UART_Transmit(&huart2, &tx2, len2, 100);
+
+	  if(ring_buffer_is_empty(&usart2_rb) != 1)	//Si el buffer de usart2_rb tiene datos para leer
+	  	  {
+		  	  ring_buffer_read(&usart2_rb, &recepcion);	//lee un dato del buffer
+	  		  dato_escrito[read_buffer_ring_counter] = recepcion; //Va llenando un nuevo arreglo con el dato leído dle buffer
+	  		  read_buffer_ring_counter ++; //Va aumentando el contador de control
+	  	  }
+
+	  vali_dato_correcto1 = strcmp(&dato_escrito, &dato_correcto1);
+	  vali_dato_correcto2 = strcmp(&dato_escrito, &dato_correcto2);
+	  vali_dato_correcto3 = strcmp(&dato_escrito, &dato_correcto3);
+	  vali_dato_correcto1_plus = strcmp(&dato_escrito, &dato_correcto1_plus);
+	  vali_dato_correcto2_plus = strcmp(&dato_escrito, &dato_correcto2_plus);
+
+	  if(vali_dato_correcto1 == 0){
+		  HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		  HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		  cantidad_cambios_x_dato1 = 6;
+		  estacionamiento_previo = 0;
+		  vali_dato_correcto1 = 0xFF;
+//		  ring_buffer_reset(&usart2_rb);
+		  read_buffer_ring_counter = 0;
+		  memset(&dato_escrito, 0, sizeof(dato_escrito));
+		  HAL_UART_Transmit(&huart2, "Entro a 1\r\n", 11, 10);
+
+	  }else if( vali_dato_correcto1_plus == 0){
+		  HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		  HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		  cantidad_cambios_x_dato1 = 0xFFFFFF;
+		  estacionamiento_previo = 0;
+		  vali_dato_correcto1_plus = 0xFF;
+//		  ring_buffer_reset(&usart2_rb);
+		  read_buffer_ring_counter = 0;
+		  memset(&dato_escrito, 0, sizeof(dato_escrito));
+		  HAL_UART_Transmit(&huart2, "Entro a +1\r\n", 12, 10);
+
+	  } else if(vali_dato_correcto2 == 0){
+		  HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		  HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		  cantidad_cambios_x_dato2 = 6;
+		  estacionamiento_previo = 0;
+		  vali_dato_correcto2 = 0xFF;
+//		  ring_buffer_reset(&usart2_rb);
+		  read_buffer_ring_counter = 0;
+		  memset(&dato_escrito, 0, sizeof(dato_escrito));
+		  HAL_UART_Transmit(&huart2, "Entro a 2\r\n", 11, 10);
+
+	  }else if( vali_dato_correcto2_plus == 0){
+		  HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		  HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		  cantidad_cambios_x_dato2 = 0xFFFFFF;
+		  estacionamiento_previo = 0;
+		  vali_dato_correcto2_plus = 0xFF;
+//		  ring_buffer_reset(&usart2_rb);
+		  read_buffer_ring_counter = 0;
+		  memset(&dato_escrito, 0, sizeof(dato_escrito));
+		  HAL_UART_Transmit(&huart2, "Entro a +2\r\n", 12, 10);
+
+	  }else if(vali_dato_correcto3 == 0){
+		  HAL_GPIO_WritePin(D3_GPIO_Port, D3_Pin, 1);
+		  HAL_GPIO_WritePin(D4_GPIO_Port, D4_Pin, 1);
+		  cantidad_cambios_x_dato3 = 0xFFFFFF;
+		  if(estacionamiento_previo == 0 && numero_estacionamiento_dato > 0){
+			  estacionamiento_previo = 1;
+		  }else{
+			  estacionamiento_previo = 0;
+			  numero_estacionamiento++;
+		  }
+		  vali_dato_correcto3 = 0xFF;
+//		  ring_buffer_reset(&usart2_rb);
+		  read_buffer_ring_counter = 0;
+		  memset(&dato_escrito, 0, sizeof(dato_escrito));
+		  HAL_UART_Transmit(&huart2, "Entro a 3\r\n", 11, 10);
+
+	  }
+
+
 
 	  //Validamos la clave ingresada
 	  if(presion_teclado == PRESION && tecla_presionada != '#' && tecla_presionada != '*'){//Para que escriba en el buffer
@@ -281,7 +381,7 @@ int main(void)
 		  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  //se presione "#"
 		  	  validacion_clave = validar_clave(&ring_clave);
 		  	  ring_buffer_reset(&ring_clave);//De una limpie el buffer cuando valide
-//		      printf("Validacion: %d\r\n", validacion_clave);
+		  	  //printf("Validacion: %d\r\n", validacion_clave);
 		  	  if(numeral_dos == 1){ //Este condicional nos sirve para indicar que la clave sigue siendo valida
 				  validacion_clave = 0;//cuando se presione por segunda vez el numeral
 			  }
@@ -337,26 +437,34 @@ int main(void)
 
 		  heartbeat();
 
+		  //FUNCIONAMIENTO PARA BOTONES
+
 		  if(presion == 1 && cantidad_cambios1 > 0 && HAL_GetTick() > tiempo_cambio)
 		  { // Si se presiona el botón de luz izquierda
-			  if(cantidad_cambios2 == 0){ // Esta condición es para que se cumpla si está prendido la luz del otro lado, entonces apague ambas
+			  if(cantidad_cambios2 == 0 && cantidad_cambios_x_dato2 == 0){ // Esta condición es para que se cumpla si está prendido la luz del otro lado, entonces apague ambas
 				  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
 				  cantidad_cambios1--;
 				  tiempo_cambio = HAL_GetTick() + 500;
+//				  pruebaa++;
+//				  printf ("Prueba: %d\r\n", pruebaa);
 			  }else{
 				  cantidad_cambios1 = 0;
 				  cantidad_cambios2 = 0;
+				  cantidad_cambios_x_dato1 = 0;
+				  cantidad_cambios_x_dato2 = 0;
 			  }
 	  //El mismo funcionamiento del anterior está para este que es el led derecho
 		  }	else if(presion == 2 && cantidad_cambios2 > 0 && HAL_GetTick() > tiempo_cambio)
-		  { // Si se presiona el botón de luz derecha
-			  if(cantidad_cambios1 == 0){
+		  { // Si se presiona el botón de luzcantidad_cambios_x_dato2 derecha
+			  if(cantidad_cambios1 == 0 && cantidad_cambios_x_dato1 == 0){
 				  HAL_GPIO_TogglePin(D4_GPIO_Port, D4_Pin);
 				  cantidad_cambios2--;
 				  tiempo_cambio = HAL_GetTick() + 500;
 			  }else{
 				  cantidad_cambios1 = 0;
 				  cantidad_cambios2 = 0;
+				  cantidad_cambios_x_dato1 = 0;
+				  cantidad_cambios_x_dato2 = 0;
 			  }
 	  // Y para el funcionamiento de la estacionaria es similar solo que con ambos leds
 		  }else if(presion == 3 && cantidad_cambios3 > 0 && HAL_GetTick() > tiempo_cambio)
@@ -368,13 +476,63 @@ int main(void)
 				  tiempo_cambio = HAL_GetTick() + 500;
 				  cantidad_cambios1 = 0;
 				  cantidad_cambios2 = 0;
+				  cantidad_cambios_x_dato1 = 0;
+				  cantidad_cambios_x_dato2 = 0;
 			  }else if(	estacionamiento_previo == 1){
 				  cantidad_cambios3 = 0;
 			  }
 		  }
 	  }
 
+	  //FUNCIONAMIENTO PARA USART
 
+
+	  if( cantidad_cambios_x_dato1 > 0 && HAL_GetTick() > tiempo_cambio){
+		  if(cantidad_cambios_x_dato2 == 0 && cantidad_cambios2 == 0){
+			  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
+			  cantidad_cambios_x_dato1--;
+			  tiempo_cambio = HAL_GetTick() + 500;
+		  }else{
+			  cantidad_cambios1 = 0;
+			  cantidad_cambios2 = 0;
+			  cantidad_cambios_x_dato1 = 0;
+			  cantidad_cambios_x_dato2 = 0;
+		  }
+	  }else if( cantidad_cambios_x_dato2 > 0 && HAL_GetTick() > tiempo_cambio){
+		  if(cantidad_cambios_x_dato1 == 0 && cantidad_cambios1 == 0){
+			  HAL_GPIO_TogglePin(D4_GPIO_Port, D4_Pin);
+			  cantidad_cambios_x_dato2--;
+			  tiempo_cambio = HAL_GetTick() + 500;
+		  }else{
+			  cantidad_cambios1 = 0;
+			  cantidad_cambios2 = 0;
+			  cantidad_cambios_x_dato1 = 0;
+			  cantidad_cambios_x_dato2 = 0;
+		  }
+	  }else if(cantidad_cambios_x_dato3 > 0 && HAL_GetTick() > tiempo_cambio){
+
+		  if(estacionamiento_previo == 0){
+			  HAL_GPIO_TogglePin(D3_GPIO_Port, D3_Pin);
+			  HAL_GPIO_TogglePin(D4_GPIO_Port, D4_Pin);
+			  cantidad_cambios_x_dato3--;
+			  tiempo_cambio = HAL_GetTick() + 500;
+			  cantidad_cambios1 = 0;
+			  cantidad_cambios2 = 0;
+			  cantidad_cambios_x_dato1 = 0;
+			  cantidad_cambios_x_dato2 = 0;
+
+		  }else if(estacionamiento_previo == 1){
+			  cantidad_cambios3 = 0;
+			  cantidad_cambios_x_dato3 = 0;
+		  }
+	  }
+
+
+
+
+//if(validar_clave() == ){
+//
+//}
 //	  if (ring_buffer_is_full(&usart2_rb) != 0) {
 //		  printf("Received:\r\n");
 //		  while (ring_buffer_is_empty(&usart2_rb) == 0) {

@@ -32,6 +32,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #define TAM_CLAVE 10
+#define TAM_BOTON 10
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

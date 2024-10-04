@@ -51,3 +51,4 @@ uint8_t validar_clave(ring_buffer_t *buffer) {
 //  ssd1306_UpdateScreen();
     return 0; // Clave correcta
 }
+
